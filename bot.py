@@ -11,6 +11,7 @@ from semaphore.message import Message
 
 SYSTEM_PREFIX = '📶🤖: '
 CONTEXT_LIMIT = 50
+MAX_TOKENS = 400
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
@@ -146,7 +147,7 @@ async def generate_response(ctx: ChatContext) -> None:
         if len(prompt_messages) > CONTEXT_LIMIT:
             await ctx.message.reply(body=SYSTEM_PREFIX + f"You reached the context maximum of {CONTEXT_LIMIT} messages. Please clear context to continue.")
         else:
-            response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=prompt_messages, temperature=ctx.temperature)
+            response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=prompt_messages, temperature=ctx.temperature, max_tokens=MAX_TOKENS)
             reply = response["choices"][0]["message"]["content"]
             logger.info(f'{response["usage"]["completion_tokens"]} tokens') 
             await ctx.message.reply(body=reply)
