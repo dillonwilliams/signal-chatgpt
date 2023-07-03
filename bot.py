@@ -21,16 +21,18 @@ logger = logging.getLogger(__name__)
 
 class StoredChatContext(ChatContext):
     def __init__(self, message: Message, match: Match, job_queue: JobQueue, bot: Bot) -> None:
-        self.all_messages = []
+        self.all_messages: List[Message | str] = []
         super().__init__(message, match, job_queue, bot)
         # TODO metering?
         self.help_displayed = False
         self.system_prompt = "You are a helpful assistant."
         self.temperature = 0.7
 
+    # this property is here to avoid patching the Bot class further
+    # it's not clear that it expects only user messages on top, but the bot messages are the wrong class anyway
     @property
     def message(self) -> Message:
-        return self.all_messages[-1]
+        return [m for m in self.all_messages if isinstance(m, Message)][-1]
     
     @message.setter
     def message(self, message: Message) -> None:
@@ -134,24 +136,21 @@ async def generate_response(ctx: ChatContext) -> None:
         await display_help(ctx)
         ctx.help_displayed = True
     else:
-        # ignore whatever the user's greeting message was
-        for message in ctx.all_messages[1:]:
-            logger.info(f'{message.username} {ctx.bot._username} {message.source} ')
-            if message.source.number == ctx.bot._username:
-                prompt_messages.append({"role": "assistant", "content": message.get_body()})
-            elif len(message.get_body()) and message.get_body()[0] != '!':
+        for message in ctx.all_messages:
+            # regrettably Semaphore does not represent bot replies as `Message` anywhere
+            if isinstance(message, Message) and len(message.get_body()) and message.get_body()[0] != '!':
                 prompt_messages.append({"role": "user", "content": message.get_body()})
-        logger.info(f'len prompt messages: {len(prompt_messages)}')
+            elif isinstance(message, str):
+                prompt_messages.append({"role": "assistant", "content": message})
 
         if len(prompt_messages) > CONTEXT_LIMIT:
             await ctx.message.reply(body=SYSTEM_PREFIX + f"You reached the context maximum of {CONTEXT_LIMIT} messages. Please clear context to continue.")
         else:
             response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=prompt_messages, temperature=ctx.temperature)
             reply = response["choices"][0]["message"]["content"]
-    
+            logger.info(f'{response["usage"]["completion_tokens"]} tokens') 
             await ctx.message.reply(body=reply)
-            # TODO need to store bot reply differently because no Message is available :(
-            #ctx.message = reply
+            ctx.all_messages.append(reply)
  
 async def main() -> None:
     """Start the bot."""
