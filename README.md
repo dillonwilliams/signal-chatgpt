@@ -5,7 +5,7 @@
 
 The Signal-ChatGPT Relay makes an OpenAI chatbot available over Signal messenger.
 
-This is good for those who need AI on an airplane, as some airliners provide free messaging service for Signal. It may also be useful in jurisdictions where ChatGPT is not available. It gives some extra control of the model such as modifying the system prompt.
+This is good for those who need AI on an airplane, as some airlines provide free messaging service for Signal. It may also be useful in jurisdictions where ChatGPT is not available. It gives some extra control of the model such as modifying the system prompt.
 
 ## Active instance
 Message __[+1-775-235-2686](tel:+17752352686)__ on Signal, or add it to your contacts with the QR code below. 
