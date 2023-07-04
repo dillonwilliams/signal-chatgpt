@@ -1,5 +1,7 @@
-![image](https://github.com/dillonwilliams/signal-chatgpt/assets/1835005/e5e5aa18-4d5e-49ed-8650-785a4c3ab3a4)
 
+<p align="center">
+<img width="220" src="https://github.com/dillonwilliams/signal-chatgpt/assets/1835005/e5e5aa18-4d5e-49ed-8650-785a4c3ab3a4" />
+</p>
 
 The Signal-ChatGPT Relay makes an OpenAI chatbot available over Signal messenger.
 
