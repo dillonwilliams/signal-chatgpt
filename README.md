@@ -1,6 +1,6 @@
 
 <p align="center">
-<img width="220" src="https://github.com/dillonwilliams/signal-chatgpt/assets/1835005/e5e5aa18-4d5e-49ed-8650-785a4c3ab3a4" />
+<img width="220" src="https://github.com/dillonwilliams/signal-chatgpt/assets/1835005/39be916e-bd47-4cca-b6fa-87679f709a1b" />
 </p>
 
 The Signal-ChatGPT Relay makes an OpenAI chatbot available over Signal messenger.
@@ -10,7 +10,7 @@ This is good for those who need AI on an airplane, as some airliners provide fre
 ## Active instance
 Message __+1 775-235-2686__ on Signal, or add it to your contacts with the QR code below. 
 
-<img width="100" alt="vcard2" src="https://github.com/dillonwilliams/signal-chatgpt/assets/1835005/e72b8a18-73e0-4576-873f-678334cc6308">
+<img width="100" alt="vcard2" src="https://github.com/dillonwilliams/signal-chatgpt/assets/1835005/f1082aa4-ad56-4bec-8223-e9e65674b13e">
 
 
 ## Dependencies and installation instructions
