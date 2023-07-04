@@ -1,28 +1,32 @@
 import logging
 import os
-from typing import Match, Callable 
+from typing import Callable, Match
+
 import anyio
 import openai
 from semaphore import ChatContext
 from semaphore.bot import Bot
-from semaphore.job_queue import JobQueue
 from semaphore.exceptions import StopPropagation
+from semaphore.job_queue import JobQueue
 from semaphore.message import Message
 
-SYSTEM_PREFIX = '📶🤖: '
+SYSTEM_PREFIX = "📶🤖: "
 CONTEXT_MESSAGE_LIMIT = 40
 MODEL = "gpt-3.5-turbo"
-HOURLY_TOKEN_LIMIT = 60000 # TODO implement
+HOURLY_TOKEN_LIMIT = 60000  # TODO implement
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
 logging.basicConfig(
-    format='%(asctime)s %(threadName)s: [%(levelname)s] %(message)s', level=logging.INFO
+    format="%(asctime)s %(threadName)s: [%(levelname)s] %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
+
 class StoredChatContext(ChatContext):
-    def __init__(self, message: Message, match: Match, job_queue: JobQueue, bot: Bot) -> None:
+    def __init__(
+        self, message: Message, match: Match, job_queue: JobQueue, bot: Bot
+    ) -> None:
         self.all_messages: List[Message | str] = []
         super().__init__(message, match, job_queue, bot)
         # TODO implement hourly token limit
@@ -35,16 +39,16 @@ class StoredChatContext(ChatContext):
     @property
     def message(self) -> Message:
         return [m for m in self.all_messages if isinstance(m, Message)][-1]
-    
+
     @message.setter
     def message(self, message: Message) -> None:
         self.all_messages.append(message)
 
-class StoredContextChatBot(Bot):
 
-    async def _handle_message(self,
-                              message: Message,
-                              func: Callable, match: Match) -> None:
+class StoredContextChatBot(Bot):
+    async def _handle_message(
+        self, message: Message, func: Callable, match: Match
+    ) -> None:
         """Handle a matched message."""
         message_id = id(message)
 
@@ -73,7 +77,9 @@ class StoredContextChatBot(Bot):
         try:
             await func(context)
             self._chat_context[context_id] = context
-            self.log.debug(f"Message ({message_id}) processed by handler {func.__name__}")
+            self.log.debug(
+                f"Message ({message_id}) processed by handler {func.__name__}"
+            )
         except StopPropagation:
             raise
         except Exception as exc:
@@ -87,8 +93,8 @@ class StoredContextChatBot(Bot):
 
 async def clear_context(ctx: ChatContext) -> None:
     await ctx.message.reply(body=SYSTEM_PREFIX + "Clearing chat context.")
-    ctx.all_messages = []    
-                            
+    ctx.all_messages = []
+
 
 async def display_help(ctx: ChatContext) -> None:
     message = f"""
@@ -122,55 +128,80 @@ async def display_info(ctx: ChatContext) -> None:
 async def set_system_prompt(ctx: ChatContext) -> None:
     system_prompt = ctx.message.get_body().replace("!prompt", "").strip()
     if system_prompt == "":
-        await ctx.message.reply(body=SYSTEM_PREFIX + "Current system prompt is:\n\t" + ctx.system_prompt)
+        await ctx.message.reply(
+            body=SYSTEM_PREFIX + "Current system prompt is:\n\t" + ctx.system_prompt
+        )
         return
     ctx.system_prompt = system_prompt
-    logger.info(f'Context {ctx.message.source.number} set system prompt')
-    await ctx.message.reply(body=SYSTEM_PREFIX + "System prompt set to:\n\t" + system_prompt)
+    logger.info(f"Context {ctx.message.source.number} set system prompt")
+    await ctx.message.reply(
+        body=SYSTEM_PREFIX + "System prompt set to:\n\t" + system_prompt
+    )
 
 
 async def set_temperature(ctx: ChatContext) -> None:
     temperature = ctx.message.get_body().replace("!temp", "").strip()
     try:
         ctx.temperature = float(temperature)
-        await ctx.message.reply(body=SYSTEM_PREFIX + "Temperature set to " + temperature)
+        await ctx.message.reply(
+            body=SYSTEM_PREFIX + "Temperature set to " + temperature
+        )
     except ValueError:
-        await ctx.message.reply(body=SYSTEM_PREFIX + "Current temperature is " + temperature)
+        await ctx.message.reply(
+            body=SYSTEM_PREFIX + "Current temperature is " + temperature
+        )
 
-          
+
 async def generate_response(ctx: ChatContext) -> None:
     if not ctx.message.get_body():
         return
 
     prompt_messages = [{"role": "system", "content": ctx.system_prompt}]
-    logger.info(f'Context {ctx.message.source.number} has {len(ctx.all_messages)} msg')
+    logger.info(f"Context {ctx.message.source.number} has {len(ctx.all_messages)} msg")
     if not ctx.help_displayed:
         await display_help(ctx)
         ctx.help_displayed = True
     else:
         for message in ctx.all_messages:
             # regrettably Semaphore does not represent bot replies as `Message` anywhere
-            if isinstance(message, Message) and len(message.get_body()) and message.get_body()[0] != '!':
+            if (
+                isinstance(message, Message)
+                and len(message.get_body())
+                and message.get_body()[0] != "!"
+            ):
                 prompt_messages.append({"role": "user", "content": message.get_body()})
             elif isinstance(message, str):
                 prompt_messages.append({"role": "assistant", "content": message})
 
         if len(prompt_messages) > CONTEXT_MESSAGE_LIMIT:
-            await ctx.message.reply(body=SYSTEM_PREFIX + f"You reached the context maximum of {CONTEXT_LIMIT} messages. Please clear context to continue.")
+            await ctx.message.reply(
+                body=SYSTEM_PREFIX
+                + f"You reached the context maximum of {CONTEXT_LIMIT} messages. Please clear context to continue."
+            )
         else:
             if len(prompt_messages) > CONTEXT_MESSAGE_LIMIT - 4:
-                await ctx.message.reply(body=SYSTEM_PREFIX + f"You are close to reaching the context limit. Please finish this chain of thought in your next 2 messages.")
+                await ctx.message.reply(
+                    body=SYSTEM_PREFIX
+                    + f"You are close to reaching the context limit. Please finish this chain of thought in your next 2 messages."
+                )
 
-            response = openai.ChatCompletion.create(model=MODEL, messages=prompt_messages, temperature=ctx.temperature)
+            response = openai.ChatCompletion.create(
+                model=MODEL, messages=prompt_messages, temperature=ctx.temperature
+            )
             reply = response["choices"][0]["message"]["content"]
-            logger.info(f'{ctx.message.source.number} {response["usage"]["total_tokens"]} tokens') 
+            logger.info(
+                f'{ctx.message.source.number} {response["usage"]["total_tokens"]} tokens'
+            )
             await ctx.message.reply(body=reply)
             ctx.all_messages.append(reply)
- 
+
+
 async def main() -> None:
     """Start the bot."""
     # Connect the bot to number.
-    async with StoredContextChatBot(os.environ["SIGNAL_PHONE_NUMBER"], profile_name="Signal-ChatGPT Relay") as bot:
+    async with StoredContextChatBot(
+        os.environ["SIGNAL_PHONE_NUMBER"], profile_name="Signal-ChatGPT Relay"
+    ) as bot:
         # TODO global exception handlers?
         bot.register_handler("!clear", clear_context)
         bot.register_handler("!help", display_help)
@@ -183,5 +214,5 @@ async def main() -> None:
         await bot.start()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     anyio.run(main)
