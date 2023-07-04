@@ -1,0 +1,19 @@
+[Unit]
+Description=Signal-OpenAI Relay Service
+After=signald.service
+Requires=signald.service
+
+[Service]
+WorkingDirectory=/home/sig/signal-chatgpt
+ExecStartPre=/bin/sleep 5
+ExecStart=/bin/bash -c 'source /home/sig/venv/bin/activate && python bot.py'
+Environment="SIGNAL_PHONE_NUMBER=+XXXX"
+Environment="OPENAI_API_KEY="
+Restart=always
+User=sig
+Group=sig
+Environment="PATH=/home/sig/venv/bin"
+Type=simple
+
+[Install]
+WantedBy=multi-user.target

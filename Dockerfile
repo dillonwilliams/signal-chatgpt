@@ -1,4 +1,5 @@
 FROM 3-bookworm
+# this Dockerfile is NOT complete!
 
 # install signald and other APT dependencies
 echo "deb [signed-by=/usr/share/keyrings/signald.gpg] https://updates.signald.org unstable main" > /etc/apt/sources.list.d/signald.list
