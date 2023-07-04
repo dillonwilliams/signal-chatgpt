@@ -10,8 +10,8 @@ from semaphore.exceptions import StopPropagation
 from semaphore.message import Message
 
 SYSTEM_PREFIX = '📶🤖: '
-CONTEXT_LIMIT = 50
-MAX_TOKENS = 400
+CONTEXT_MESSAGE_LIMIT = 40
+HOURLY_TOKEN_LIMIT = 60000 # TODO implement
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
@@ -24,9 +24,9 @@ class StoredChatContext(ChatContext):
     def __init__(self, message: Message, match: Match, job_queue: JobQueue, bot: Bot) -> None:
         self.all_messages: List[Message | str] = []
         super().__init__(message, match, job_queue, bot)
-        # TODO metering?
+        # TODO implement hourly token limit
         self.help_displayed = False
-        self.system_prompt = "You are a helpful assistant."
+        self.system_prompt = "You are a helpful assistant who answers concisely."
         self.temperature = 0.7
 
     # this property is here to avoid patching the Bot class further
@@ -40,11 +40,6 @@ class StoredChatContext(ChatContext):
         self.all_messages.append(message)
 
 class StoredContextChatBot(Bot):
-    async def typing_started(self, message):
-        await self._sender.typing_started(message)
-
-    async def typing_stopped(self, message):
-        await self._sender.typing_stopped(message)
 
     async def _handle_message(self,
                               message: Message,
@@ -98,10 +93,12 @@ async def display_help(ctx: ChatContext) -> None:
     message = f"""
         {SYSTEM_PREFIX} Welcome to your Signal-OpenAI chatbot relay!
         Simply begin messaging to chat, or use the following commands:
-        !clear - clear the chat context (may be required if you hit the token limit)
+        !clear - clear the chat context
         !prompt - set the system prompt for the model
         !temp - set the temperature for the model
         !help - display this help message
+
+        Phone number and usage stats (but not messages) are logged.
 
         Messages from this chatbot relay (as opposed to the LLM) are prefixed with "{SYSTEM_PREFIX}"
     """
@@ -114,7 +111,7 @@ async def set_system_prompt(ctx: ChatContext) -> None:
         await ctx.message.reply(body=SYSTEM_PREFIX + "Current system prompt is:\n\t" + ctx.system_prompt)
         return
     ctx.system_prompt = system_prompt
-    logger.info(f'Context {ctx.message.username} reset system prompt')
+    logger.info(f'Context {ctx.message.source.number} set system prompt')
     await ctx.message.reply(body=SYSTEM_PREFIX + "System prompt set to:\n\t" + system_prompt)
 
 
@@ -132,7 +129,7 @@ async def generate_response(ctx: ChatContext) -> None:
         return
 
     prompt_messages = [{"role": "system", "content": ctx.system_prompt}]
-    logger.info(f'Context {ctx.message.username} has {len(ctx.all_messages)} msg')
+    logger.info(f'Context {ctx.message.source.number} has {len(ctx.all_messages)} msg')
     if not ctx.help_displayed:
         await display_help(ctx)
         ctx.help_displayed = True
@@ -144,10 +141,13 @@ async def generate_response(ctx: ChatContext) -> None:
             elif isinstance(message, str):
                 prompt_messages.append({"role": "assistant", "content": message})
 
-        if len(prompt_messages) > CONTEXT_LIMIT:
+        if len(prompt_messages) > CONTEXT_MESSAGE_LIMIT:
             await ctx.message.reply(body=SYSTEM_PREFIX + f"You reached the context maximum of {CONTEXT_LIMIT} messages. Please clear context to continue.")
         else:
-            response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=prompt_messages, temperature=ctx.temperature, max_tokens=MAX_TOKENS)
+            if len(prompt_messages) > CONTEXT_MESSAGE_LIMIT - 4:
+                await ctx.message.reply(body=SYSTEM_PREFIX + f"You are close to reaching the context limit. Please finish this chain of thought in your next 2 messages.")
+
+            response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=prompt_messages, temperature=ctx.temperature)
             reply = response["choices"][0]["message"]["content"]
             logger.info(f'{response["usage"]["completion_tokens"]} tokens') 
             await ctx.message.reply(body=reply)
