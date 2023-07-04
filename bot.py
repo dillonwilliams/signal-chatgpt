@@ -11,6 +11,7 @@ from semaphore.message import Message
 
 SYSTEM_PREFIX = '📶🤖: '
 CONTEXT_MESSAGE_LIMIT = 40
+MODEL = "gpt-3.5-turbo"
 HOURLY_TOKEN_LIMIT = 60000 # TODO implement
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
@@ -91,16 +92,29 @@ async def clear_context(ctx: ChatContext) -> None:
 
 async def display_help(ctx: ChatContext) -> None:
     message = f"""
-        {SYSTEM_PREFIX} Welcome to your Signal-OpenAI chatbot relay!
-        Simply begin messaging to chat, or use the following commands:
+        {SYSTEM_PREFIX} Welcome to your Signal-ChatGPT relay!
+
+Simply begin messaging to chat, or use the following commands:
         !clear - clear the chat context
         !prompt - set the system prompt for the model
         !temp - set the temperature for the model
+        !info - get more info about this relay
         !help - display this help message
 
-        Phone number and usage stats (but not messages) are logged.
+Messages from this chatbot relay (as opposed to the LLM) are prefixed with "{SYSTEM_PREFIX}"
+    """
+    await ctx.message.reply(body=message)
 
-        Messages from this chatbot relay (as opposed to the LLM) are prefixed with "{SYSTEM_PREFIX}"
+
+async def display_info(ctx: ChatContext) -> None:
+    message = f"""
+        {SYSTEM_PREFIX}
+        
+        Code and installation instructions are available at https://github.com/dillonwilliams/signal-chatgpt
+
+        This relay is connected to OpenAI's paid API, using the '{MODEL}' model. It may impose limits on chat context size and overall usage. Uptime is not guaranteed.
+
+        Phone number and usage stats (but not messages) are logged.
     """
     await ctx.message.reply(body=message)
 
@@ -147,19 +161,20 @@ async def generate_response(ctx: ChatContext) -> None:
             if len(prompt_messages) > CONTEXT_MESSAGE_LIMIT - 4:
                 await ctx.message.reply(body=SYSTEM_PREFIX + f"You are close to reaching the context limit. Please finish this chain of thought in your next 2 messages.")
 
-            response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=prompt_messages, temperature=ctx.temperature)
+            response = openai.ChatCompletion.create(model=MODEL, messages=prompt_messages, temperature=ctx.temperature)
             reply = response["choices"][0]["message"]["content"]
-            logger.info(f'{response["usage"]["completion_tokens"]} tokens') 
+            logger.info(f'{ctx.message.source.number} {response["usage"]["total_tokens"]} tokens') 
             await ctx.message.reply(body=reply)
             ctx.all_messages.append(reply)
  
 async def main() -> None:
     """Start the bot."""
     # Connect the bot to number.
-    async with StoredContextChatBot(os.environ["SIGNAL_PHONE_NUMBER"], profile_name="Signal-OpenAI Relay") as bot:
+    async with StoredContextChatBot(os.environ["SIGNAL_PHONE_NUMBER"], profile_name="Signal-ChatGPT Relay") as bot:
         # TODO global exception handlers?
         bot.register_handler("!clear", clear_context)
         bot.register_handler("!help", display_help)
+        bot.register_handler("!info", display_info)
         bot.register_handler("!prompt", set_system_prompt)
         bot.register_handler("!temp", set_temperature)
         bot.register_handler("^(?!!).*", generate_response)
