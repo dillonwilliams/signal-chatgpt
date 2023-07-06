@@ -47,6 +47,8 @@ sudo systemctl start signal-chatgpt
 ```
 6. View logs with `sudo journalctl -u signal-chatgpt`
 
+If the bot hangs it is probably `signald`'s fault and should be restarted with `sudo systemctl restart signald`. 
+
 For dev work, run `python bot.py` inside your virtualenv.
 
 

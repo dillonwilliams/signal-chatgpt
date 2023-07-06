@@ -55,7 +55,8 @@ class StoredContextChatBot(Bot):
         # Get context id.
         group_id: Optional[str] = message.get_group_id()
         if group_id is not None:
-            context_id = f"{group_id}+{message.source.uuid}"
+            # can't tell apart who is asking what, plus large groups seem to sometimes hang signald
+            return
         else:
             context_id = message.source.uuid
 
