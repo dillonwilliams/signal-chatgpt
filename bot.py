@@ -177,7 +177,7 @@ async def generate_response(ctx: ChatContext) -> None:
         if len(prompt_messages) > CONTEXT_MESSAGE_LIMIT:
             await ctx.message.reply(
                 body=SYSTEM_PREFIX
-                + f"You reached the context maximum of {CONTEXT_LIMIT} messages. Please clear context to continue."
+                + f"You reached the context maximum of {CONTEXT_MESSAGE_LIMIT} messages. Please clear context to continue."
             )
         else:
             if len(prompt_messages) > CONTEXT_MESSAGE_LIMIT - 4:
@@ -186,9 +186,16 @@ async def generate_response(ctx: ChatContext) -> None:
                     + f"You are close to reaching the context limit. Please finish this chain of thought in your next 2 messages."
                 )
 
-            response = openai.ChatCompletion.create(
-                model=MODEL, messages=prompt_messages, temperature=ctx.temperature
-            )
+            try:
+                response = openai.ChatCompletion.create(
+                    model=MODEL, messages=prompt_messages, temperature=ctx.temperature
+                )
+            except openai.error.InvalidRequestError as e:
+                logger.exception(e)
+                reply = SYSTEM_PREFIX + 'OpenAI invalid request error. You may need to clear context with "!clear".'
+                await ctx.message.reply(body=reply)
+                return
+
             reply = response["choices"][0]["message"]["content"]
             logger.info(
                 f'{ctx.message.source.number} {response["usage"]["total_tokens"]} tokens'
